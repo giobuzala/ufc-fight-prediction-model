@@ -6,4 +6,4 @@ The workflow separates model training and inference, allowing the trained model 
 
 The data used in this project is sourced from the [Ultimate UFC Dataset](https://github.com/shortlikeafox/ultimate_ufc_dataset) repository by Matthew Dabbert. You can find more information about this dataset on [Kaggle](https://www.kaggle.com/datasets/mdabbert/ultimate-ufc-dataset).
 
-When new `upcoming.csv` files are added, the trained model can be applied to these datasets using `apply_model.ipynb` to generate predicted win probabilities for upcoming fights.
+When new `upcoming.csv` files are added, the trained model can be applied to these datasets using `notebooks/apply_model.ipynb` to generate predicted win probabilities for upcoming fights.
