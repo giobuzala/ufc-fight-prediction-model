@@ -1,9 +1,10 @@
-# UFC Fight Prediction Model
+# UFC Fight Prediction Model Functions
 
 # --------------------
 # Libraries
 # --------------------
 
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import joblib
@@ -12,14 +13,17 @@ import joblib
 # Load Artifacts
 # --------------------
 
-PREP_PATH = "artifacts/preprocessing_pipeline.joblib"
-MODEL_PATH = "artifacts/logistic_model.joblib"
+# Resolve paths relative to this file
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+PREP_PATH = BASE_DIR / "artifacts" / "preprocessing_pipeline.joblib"
+MODEL_PATH = BASE_DIR / "artifacts" / "logistic_model.joblib"
 
 preprocess = joblib.load(PREP_PATH)
 model = joblib.load(MODEL_PATH)
 
 # --------------------
-# Define Feature Engineering Functions
+# Define Feature Engineering Function
 # --------------------
 
 # Define column order
@@ -159,7 +163,7 @@ def build_features(df):
 
     # Ranking transformations
     rank_cols = [c for c in df.columns if c.endswith("Rank") and c != "BetterRank"]
-    df[rank_cols] = df[rank_cols].applymap(transform_rank)
+    df[rank_cols] = df[rank_cols].map(transform_rank)
 
     df["MatchWCRankDif"] = df["RMatchWCRank"] - df["BMatchWCRank"]
     df["PFPRankDif"] = df["RPFPRank"] - df["BPFPRank"]
@@ -215,38 +219,38 @@ def build_features(df):
 
 def predict_fight(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Predict win probabilities for UFC fights.
-
-    Takes a raw fight-level DataFrame, applies the same feature engineering,
-    preprocessing, and PCA used during training, and returns predicted win
-    probabilities for each possible outcome.
-
-    Returns
-    -------
-    pandas.DataFrame
-        A DataFrame with one row per fight and one column per class
-        (e.g., Red vs Blue), containing predicted probabilities that
-        sum to 1 across each row.
+    Predict win probabilities for UFC fights and return the full dataset
+    with prediction columns appended.
     """
 
-    # Keep identifier
-    fight_id = df["FightID"].reset_index(drop=True)
+    df_out = df.reset_index(drop=True).copy()
 
     # 1. Build features
-    X = build_features(df)
+    X = build_features(df_out)
 
     # 2. Preprocess
-    X_pca = preprocess.transform(X)
+    X_prep = preprocess.transform(X)
 
     # 3. Predict
-    probs = model.predict_proba(X_pca)
+    probs = model.predict_proba(X_prep)
 
-    # 4. Build output
-    out = pd.DataFrame(
+    # 4. Build prediction columns
+    class_map = {0: "BluePredOdds", 1: "RedPredOdds"}
+    preds = pd.DataFrame(
         probs,
-        columns=model.classes_
+        columns=[class_map[c] for c in model.classes_]
     )
 
-    out.insert(0, "FightID", fight_id)
+    preds = preds[["RedPredOdds", "BluePredOdds"]]
 
-    return out
+    # 5. Append to original data
+    df_out[["RedPredOdds", "BluePredOdds"]] = preds.values
+
+    # 6. Add predicted winner
+    df_out["PredictedWinner"] = np.where(
+        df_out["RedPredOdds"] >= df_out["BluePredOdds"],
+        "Red",
+        "Blue"
+    )
+
+    return df_out
